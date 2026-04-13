@@ -105,13 +105,22 @@ NOTIFICATION_BODY="${CLAUDE_NOTIFICATION_MESSAGE:-Waiting for input}"
 TAB_NUM=""
 
 detect_intellij_tab() {
-    local my_tty
-    my_tty="$(tty 2>/dev/null)" || return 0
-    # Strip /dev/ prefix for comparison
-    my_tty="${my_tty#/dev/}"
+    # The hook runs in a child process without a TTY.
+    # Walk up the process tree from PPID to find the Claude Code process,
+    # which runs on a real PTY inside IntelliJ's terminal.
+    local my_tty=""
+    local pid="$PPID"
+    for _ in 1 2 3 4 5; do
+        my_tty="$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')"
+        [[ -n "$my_tty" && "$my_tty" != "?" ]] && break
+        pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
+        [[ -z "$pid" || "$pid" == "0" || "$pid" == "1" ]] && return 0
+    done
 
-    # Find all PIDs whose command line contains bash-integration.bash (IntelliJ
-    # injects this into its integrated terminal sessions).
+    [[ -z "$my_tty" || "$my_tty" == "?" ]] && return 0
+
+    # Match this PTY against IntelliJ terminal tabs by finding processes
+    # running bash-integration.bash (IntelliJ injects this into each tab).
     local tab_index=0
     local found=false
 
@@ -120,7 +129,6 @@ detect_intellij_tab() {
         pid_tty="$(ls -la "/proc/$(basename "$pid_dir")/fd/0" 2>/dev/null \
                    | awk '{print $NF}' | sed 's|^/dev/||')" || continue
 
-        # Read the cmdline to verify it's a bash-integration shell
         local cmdline
         cmdline="$(tr '\0' ' ' < "/proc/$(basename "$pid_dir")/cmdline" 2>/dev/null)" || continue
 
@@ -170,13 +178,19 @@ detect_window_id() {
 
     case "$mode" in
         intellij)
-            # Try project name first, then generic IntelliJ/JetBrains pattern
+            # Try project name + IDE keyword first
             WINDOW_ID="$(echo "$wmctrl_list" | grep -i "$PROJECT_NAME" \
                          | grep -iE "idea|jetbrains|intellij" \
                          | head -1 | awk '{print $1}')"
+            # Fallback: project name with em-dash (IntelliJ title format: "project – file")
             if [[ -z "$WINDOW_ID" ]]; then
-                WINDOW_ID="$(echo "$wmctrl_list" \
-                             | grep -iE "idea|jetbrains|intellij" \
+                WINDOW_ID="$(echo "$wmctrl_list" | grep -i "$PROJECT_NAME" \
+                             | grep -E " – " \
+                             | head -1 | awk '{print $1}')"
+            fi
+            # Fallback: just project name
+            if [[ -z "$WINDOW_ID" ]]; then
+                WINDOW_ID="$(echo "$wmctrl_list" | grep -i "$PROJECT_NAME" \
                              | head -1 | awk '{print $1}')"
             fi
             ;;
@@ -288,7 +302,10 @@ send_notification() {
 
                     output="$(notify-send "${args[@]}" "$NOTIFICATION_TITLE" "$NOTIFICATION_BODY" 2>/dev/null)" || true
 
-                    # If the user clicked the action, focus the window
+                    # If the user clicked the action, just focus the window.
+                    # The correct terminal tab is already active since that's
+                    # where the notification originated. Tab navigation is only
+                    # needed for the claude-jump.sh keyboard shortcut.
                     if [[ "$output" == "focus" ]] && [[ -n "$WINDOW_ID" ]]; then
                         wmctrl -i -a "$WINDOW_ID" &>/dev/null || true
                     fi

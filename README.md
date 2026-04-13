@@ -11,7 +11,7 @@ It integrates with Claude Code's [hook system](https://docs.anthropic.com/en/doc
 - Desktop notification with a "Go to terminal" action button (Linux)
 - Configurable notification sounds (3 bundled: ninja-swoosh, ninja-shuriken-throw, electric-piano)
 - Custom sound support -- use any `.wav` file
-- Jump-to-terminal keyboard shortcut helper (`claude-jump.sh`)
+- Jump-to-window keyboard shortcut helper (`claude-jump.sh`)
 - Cross-platform: Linux, macOS, WSL
 - IDE-aware: IntelliJ IDEA, VS Code, plain terminal
 - Zero dependencies beyond standard OS tools
@@ -70,7 +70,7 @@ CLAUDE_NOTIFY_SOUND_ENABLED="true"
 
 ## Jump to Terminal
 
-`claude-jump.sh` is a companion script that reads the last notification state and focuses the correct IDE window (and, for IntelliJ, the correct terminal tab). Bind it to a global keyboard shortcut so you can jump straight to the waiting prompt from anywhere.
+`claude-jump.sh` is a companion script that reads the last notification state and focuses the correct IDE window. Bind it to a global keyboard shortcut so you can jump straight to the window where Claude is waiting.
 
 ### Linux
 
@@ -121,8 +121,7 @@ CLAUDE_NOTIFY_SOUND="/home/user/sounds/alert.wav"
 |------------|-------|-------|-----|
 | Sound playback | `paplay` / `aplay` | `afplay` | `powershell.exe` |
 | Notifications | `notify-send` | `osascript` | `powershell.exe` |
-| Window focus | `wmctrl` | `osascript` | N/A |
-| Jump to terminal | `xdotool` | `osascript` | N/A |
+| Window focus | `wmctrl` | `osascript` | `powershell.exe` |
 
 ## Uninstall
 

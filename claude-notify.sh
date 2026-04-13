@@ -207,9 +207,18 @@ detect_window_id() {
             fi
             # Then VS Code
             detect_window_id "vscode"
+            if [[ -n "$WINDOW_ID" ]]; then
+                return
+            fi
+            # Fallback: any window with the project name in the title
+            # (catches native terminals that show the directory in the title bar)
+            WINDOW_ID="$(echo "$wmctrl_list" | grep -i "$PROJECT_NAME" \
+                         | head -1 | awk '{print $1}')"
             ;;
         terminal)
-            # Explicitly skip window detection
+            # Any window with the project name
+            WINDOW_ID="$(echo "$wmctrl_list" | grep -i "$PROJECT_NAME" \
+                         | head -1 | awk '{print $1}')"
             ;;
     esac
 }
